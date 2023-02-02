@@ -92,9 +92,7 @@ def index(request):
     # send_mail_without_celery()    
     return HttpResponse("<h1> done  <h1>")
 
-def send_mail_fun():
-    import pdb;pdb.set_trace()
-    mailServer = smtplib.SMTP("smtp.gmail.com", 587, timeout=120)
+def send_mail_fun(request):
     send_mail("CELERY WORKED PROPER", "CELERY IS COOL",
     'nagarharshita280@gmail.com',
     ["ranupatlya590@gmail.com"],
