@@ -12,7 +12,7 @@ class Track(models.Model):
     order = models.CharField(max_length=200, null=True, blank=True)
     title = models.CharField(max_length=200, null=True, blank=True)
     duration = models.IntegerField(default=0)
-    album = models.ForeignKey(Album , related_name='tracks',on_delete=models.CASCADE,null= True)
+    album = models.ForeignKey(Album , related_name='tracks',on_delete=models.CASCADE,null= True,blank=True)
 
 #this signals create auth token 
 @receiver(post_save, sender = settings.AUTH_USER_MODEL)

@@ -13,7 +13,26 @@ from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated , IsAdminUser ,IsAuthenticatedOrReadOnly, AllowAny, DjangoModelPermissions
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
+from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle ,ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework import generics
+from django_filters.rest_framework import DjangoFilterBackend
+import folium
+import geocoder
+from django.shortcuts import render , redirect
+from .forms import SearchForm
+from django.http import HttpResponse
+from django.core.mail import send_mail     
+from django.views.generic import ListView
 # Create your views here.
+
+
+factory = APIRequestFactory()
+request = factory.get('/')
+
 
 for user in User.objects.all():
     token = Token.objects.get_or_create(user=user)
@@ -35,28 +54,126 @@ class Albumlist(APIView):
     permission_classes = [IsAuthenticated]
     # authentication_classes = [JWTAuthentication]
     # permission_classes = [IsAuthenticated]
-class Albumlist(APIView):    
-    def get(self, request):
-        album = Album.objects.all()
-        serializer = AlbumSerializer(instance=album, many=True)
-        return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
 
 class Albumlist1(APIView):
-    def post(self, request, pk):
+    def get(self, request):
+        track = Track.objects.all()
+        # serializer = TrackSerializer1(instance=album, many=True)
+        serializer = Trackserializer(instance=track)
+        return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+    def post(self, request):
         data= request.data
-        import pdb;pdb.set_trace()
-        serializer = TrackSerializer1(data=data)
+        # import pdb;pdb.set_trace()
+        serializer = TrackSerializer1(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors)
+
+
+class Albumlist(APIView):    
+    # def get(self, request):
+    #     import pdb;pdb.set_trace()
+    #     album = Album.objects.all()
+    #     serializer = AlbumSerializer(instance=album, many=True)
+    #     # track = Track.objects.all()
+    #     # serializer = Trackserializer(instance=track, many=True)
+    #     return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+    '''
+    using query_pramas data in get method
+    '''
+    def get(self, request):
+        album_id= request.query_params.get('album')
+        artist= request.query_params.get('artist')
+        if artist != None and album_id !=None:
+            album = Album.objects.filter(id=album_id,artist=artist)
+            serializer = AlbumSerializernew(instance=album, many=True)
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({"data not found"},status=status.HTTP_404_NOT_FOUND)    
+
+    def post(self, request):
+        data= request.data
+        import pdb;pdb.set_trace()
+        album_id= request.query_params.get('album')
+        artist= request.query_params.get('artist')
+        serializer = AlbumSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save() 
+            return Response(serializer.data)
+        return Response(serializer.errors)
+    '''
+    using query_pramas data use in Post method but django rules we should't user query params with Post
+    '''
+
+    # def post(self, request):
+    #     data= request.data
+    #     import pdb;pdb.set_trace()
+    #     album_id= request.query_params.get('album')
+    #     artist= request.query_params.get('artist')
+    #     serializer = AlbumSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save() 
+    #     if artist != None and album_id !=None:
+    #         album = Album.objects.filter(id=album_id,artist=artist)
+    #         serializer = AlbumSerializernew(instance=album, many=True)
+    #         return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+    #     return Response({"data not found"},status=status.HTTP_404_NOT_FOUND)           
+# ..............................................................
+'''
+not understand context 
+$ Context are used in Django REST Framework when you want to add extra data to the serializer in addition to the object being serialized.
+'''
+class Albumlistnew(APIView): 
+     
+    def get(self, request):
+        album = Album.objects.all()
+
+        serializer = AlbumSerializernew(instance=album, many=True)
+        # track = Track.objects.all()
+        # serializer = Trackserializer(instance=track, many=True)
+        return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
+
+# CRUD START HERE..............................
+class Crud_by_id(APIView):
+    def get_note(self, id):
+        try:
+            return Album.objects.get(id=id)
+        except:
+            return None
+
+    def get(self, request, id):
+        note = self.get_note(id=id)
+        if note == None:
+            return Response("id not available", status=status.HTTP_404_NOT_FOUND) 
+        serializer = AlbumSerializer(note)
+        return Response({"status": "success", "note": serializer.data})   
+
+    def patch(self,request, id):
+        note = self.get_note(id=id) 
+        serializer = AlbumSerializer(note, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status": "update success", "note": serializer.data})    
+
+    def delete(self , request, id):
+        import pdb;pdb.set_trace()
+        note = self.get_note(id=id)
+        if not note:
+            return Response("id not available",status=status.HTTP_404_NOT_FOUND)
+        note.delete()
+        return Response("delete success")
+
+
 #throtling ---------------------------------------------
 
-from rest_framework.response import Response
-from rest_framework.throttling import UserRateThrottle ,ScopedRateThrottle
-from rest_framework.views import APIView
-from rest_framework import generics
-from django_filters.rest_framework import DjangoFilterBackend
 class ExampleView(APIView):
     throttle_classes = [UserRateThrottle, ScopedRateThrottle]
     throttle_scope = 'contacts'
@@ -83,14 +200,9 @@ class Albumlist3(generics.ListAPIView):
     serializer_class = AlbumSerializer
     filter_backends = [filters.SearchFilter]
     # search_fields = ['artist']
-    search_fields = ['^album_name']
+    search_fields = ['album_name']
 
 # map ----------------------------
-import folium
-import geocoder
-from django.shortcuts import render , redirect
-from .forms import SearchForm
-from django.http import HttpResponse
 def indexpage(request):
     if request.method == 'POST':
         form = SearchForm(request.POST)
@@ -129,25 +241,23 @@ class LargeResultsSetPagination(CursorPagination):
     ordering = 'album_name'
     
 class paginatorRecordsView(generics.ListAPIView):
-    queryset = Album.objects.all()
-    # queryset = Track.objects.all()
-    serializer_class = AlbumSerializer
+    # queryset = Album.objects.all()
+    queryset = Track.objects.all()
+    # serializer_class = AlbumSerializer
+    serializer_class = TrackSerializer
     pagination_class = LargeResultsSetPagination 
 
 def hello(self):
     x = 10+20
     return print(x) 
 
-# from django.core.mail import send_mail     
-# def send_mail_fun():
-#     # import pdb;pdb.set_trace()
-#     # mailServer = smtplib.SMTP("smtp.gmail.com", 587, timeout=120)
-#     send_mail("CELERY WORKED PROPER", "CELERY IS COOL",
-#     'nagarharshita280@gmail.com',
-#     ["ranupatlya590@gmail.com"],
-#     fail_silently= False)
-#     return HttpResponse("<h1> Hello from  jdkjahdha <h1>")   
-#         
-from django.views.generic import ListView
+def send_mail_fun(request):
+    # import pdb;pdb.set_trace()
+    send_mail("CELERY WORKED PROPER", "CELERY IS COOL",
+    'nagarharshita280@gmail.com',
+    ["ranupatlya590@gmail.com"],
+    fail_silently= False)
+
+        
 class AlbumListView(ListView):
     model = Album

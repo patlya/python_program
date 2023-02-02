@@ -12,13 +12,13 @@ class TrackSerializer(serializers.Serializer):
     duration = models.IntegerField(default=0)
     album = models.ForeignKey(Album, related_name='tracks',on_delete=models.CASCADE,null= True)
 
-#     def create(self, validated_data):
-#         return self
 
 class TrackSerializer1(serializers.ModelSerializer):
+    def create(self, validated_data):
+        return Track.objects.create(**validated_data)
     class Meta:
         model = Track
-        fields = ['order', 'title', 'duration']
+        fields = ['order', 'title', 'duration','album']
 #validation field and object level
     # def validate_duration(self, attrs):
     #     if attrs <=3:
@@ -30,8 +30,18 @@ class TrackSerializer1(serializers.ModelSerializer):
         if duration == 2 and title != 'nothing':
             return attrs
         raise serializers.ValidationError("object level validation not successcondition not setisfied")               
-
-class AlbumSerializer(serializers.ModelSerializer):
+"""
+backword relation
+"""
+class AlbumSerializer(serializers.HyperlinkedModelSerializer):
+    # tracks = serializers.HyperlinkedRelatedField(
+    #     many=True,
+    #     read_only=True,
+    #     view_name='track-detail',
+    #     lookup_field='titles'
+    # )
+    # tracks = serializers.StringRelatedField(many=True)
+    # tracks = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     # tracks = serializers.SlugRelatedField(
     #     many=True,
     #     read_only=True,
@@ -40,16 +50,58 @@ class AlbumSerializer(serializers.ModelSerializer):
     tracks = TrackSerializer1(many=True)
     class Meta:
         model = Album
-        fields = ['album_name', 'artist','tracks']
+        fields = ['id','album_name', 'artist','tracks']
+        # fields = ['album_name', 'artist']
+
+class AlbumSerializernew(serializers.ModelSerializer):
+    # data = serializers.SerializerMethodField()
+    class Meta:
+        model = Album
+        fields = '__all__'  
+
+    # def get_data(self, obj):
+    #     import pdb;pdb.set_trace()
+    #     if self.context['request'].user.has_perm('something.add_something'):
+    #        return 'hello'
+
+class SearchSerializer(serializers.ModelSerializer):
+    search = serializers.SerializerMethodField()
+    class Meta:
+        model = Search
+        fields =['address','date','search'] 
+
+    # def get_search(self, obj):
+    #     context={}
+    #     context['data'] = Album.objects.filter(id=1)
+    #     return AlbumSerializernew(context,{"context":context})
+
+
+"""
+Farword relation 
+"""
+class Trackserializer(serializers.ModelSerializer):
+    # album = serializers.SlugRelatedField(read_only=True, slug_field='album_name')
+    
+    class Meta:
+        model = Track
+        fields =  ['id','album','duration','title','order']   
+
+
     '''
     if we want to change of output of serializer then use to_representation method 
     '''
-    # def to_representation(self, instance):
-    #     # import pdb;pdb.set_trace()
-    #     representation = super().to_representation(instance)
-    #     track={}
-    #     track['title'] = Track.objects.get(id=1).title
-    #     return track
+    def to_representation(self, instance):
+        # import pdb;pdb.set_trace()
+        representation = super().to_representation(instance)
+        track={}
+        album={}
+        # track['track_data']=representation
+        obj=Track.objects.get(id=22)
+        track['id']=obj.album.id
+        track['album_name'] = obj.album.album_name
+        track['artist']= obj.album.artist
+        album['album_data']=track
+        return album
     '''
     when we add an extra field in our output then use methodserializerfield 
     '''    
